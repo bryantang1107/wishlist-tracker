@@ -1,71 +1,82 @@
 import type { Locator, Page } from 'playwright';
-import type { CheckResult, TrackContext, TrackMode } from '../types.js';
+import type { CheckResult, TrackMode } from '../types.js';
 import type { SiteAdapter } from '../types.js';
+import { OOS_KEYWORDS, OOS_REGEX, BUY_CTA } from '../constant.js';
 
 const ZARA_HOST = 'www.zara.com';
 const ZARA_MY_PATH = '/my/';
 
-/**
- * Heuristic selectors: Zara’s class names and DOM change. Re-verify against a live MY PDP
- * (product detail page) and adjust; see money-amount patterns on Zara’s global site.
- */
-const PRICE_MAIN =
-  ".money-amount__main, [class*='money-amount__main'], [class*='price']";
-const OLD_PRICE =
-  ".money-amount__old, [class*='money-amount__old'], [class*='line-through']";
+const PRICE_MAIN = '.price-current__amount, .price__amount--on-sale';
+const OLD_PRICE = '.price-old__amount ';
+const DISCOUNT_PERCENTAGE = '.price-current__discount-percentage';
 
-function parseLocalePrice(text: string): string {
+function parseString(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
 async function readCurrentPriceText(page: Page): Promise<string | undefined> {
   const main = page.locator(PRICE_MAIN).first();
   if (await main.isVisible().catch(() => false)) {
-    return parseLocalePrice((await main.innerText()) ?? '');
+    return parseString((await main.innerText()) ?? '');
   }
   return undefined;
 }
 
-async function hasStrikethroughOrOldPrice(page: Page): Promise<boolean> {
-  const old = page.locator(OLD_PRICE).first();
-  if (await old.isVisible().catch(() => false)) {
-    return true;
+async function readDiscountPercentageText(
+  page: Page,
+): Promise<string | undefined> {
+  const main = page.locator(DISCOUNT_PERCENTAGE).first();
+  if (await main.isVisible().catch(() => false)) {
+    return parseString((await main.innerText()) ?? '');
   }
-  const anyStrike = page.locator("s, del, [class*='strikethrough']");
-  return anyStrike
-    .first()
-    .isVisible()
-    .catch(() => false);
+  return undefined;
 }
 
-async function hasSaleLabelNearPrice(page: Page): Promise<boolean> {
-  const region = page
-    .locator(".product-detail-top-info, [class*='product-detail'], main")
-    .first();
-  const copy = (await region.innerText().catch(() => '')) ?? '';
-  return /\b(sale|off|%|discoun|reduc|promo)\b/i.test(copy);
+async function hasStrikethroughOrOldPrice(page: Page): Promise<{
+  hasOldPrice: boolean;
+  oldPrice: string;
+  discountPercentage?: string;
+}> {
+  let obj = { hasOldPrice: false, oldPrice: '', discountPercentage: '-' };
+  //check if old price is visible
+  const discountPercentage = await readDiscountPercentageText(page);
+  if (discountPercentage) {
+    obj.discountPercentage = discountPercentage;
+  }
+  const old = page.locator(OLD_PRICE).first();
+  if (await old.isVisible().catch(() => false)) {
+    obj.hasOldPrice = true;
+    obj.oldPrice = parseString((await old.innerText()) ?? '');
+    return obj;
+  }
+
+  //check if any strike is visible
+  const anyStrike = page.locator("s, del, [class*='strikethrough']").first();
+  if (await anyStrike.isVisible().catch(() => false)) {
+    obj.hasOldPrice = true;
+    obj.oldPrice = parseString((await anyStrike.innerText()) ?? '');
+    return obj;
+  }
+  return obj;
 }
 
 async function checkSale(page: Page): Promise<CheckResult> {
-  const onSaleByOld = await hasStrikethroughOrOldPrice(page);
-  const onSaleByLabel = await hasSaleLabelNearPrice(page);
+  const { hasOldPrice, oldPrice, discountPercentage } =
+    await hasStrikethroughOrOldPrice(page);
   const priceText = await readCurrentPriceText(page);
-  const matched = onSaleByOld || onSaleByLabel;
+  const matched = hasOldPrice;
   return {
     matched,
     reason: matched ? 'zara_sale_detected' : 'zara_no_sale_indicators',
     details: {
+      oldPrice: oldPrice,
       currentPrice: priceText,
-      hasOldOrStruckPrice: onSaleByOld,
-      hasSaleLikeLabel: onSaleByLabel,
+      hasOldOrStruckPrice: hasOldPrice,
+      discountPercentage: discountPercentage,
     },
   };
 }
 
-/**
- * OOS and “notify me” copy on the PDP. Keep patterns literal so we do not false-positive on
- * unrelated “add to wishlist” or header text.
- */
 async function hasPdpOutOfStockSignals(page: Page): Promise<boolean> {
   const t =
     (
@@ -77,32 +88,24 @@ async function hasPdpOutOfStockSignals(page: Page): Promise<boolean> {
   if (t.length === 0) {
     return false;
   }
-  if (t.includes('out of stock') || t.includes('sold out')) {
+  const matchedKeyword = OOS_KEYWORDS.find((keyword) => t.includes(keyword));
+  if (matchedKeyword) {
+    console.log('OOS keyword matched:', matchedKeyword);
     return true;
   }
-  if (t.includes('notify me when') && /\b(back|available|stock)\b/.test(t)) {
-    return true;
-  }
-  if (/e-?mail (me )?when( it'?s| its)? (in stock|available|back)/.test(t)) {
-    return true;
-  }
-  return (
-    /not available( for| online)?( purchase| for purchase)?/i.test(t) ||
-    /\bunavailable\b/.test(t)
-  );
-}
 
-/** Prefer add-to-bag, never “add to wishlist” (both contain “add”, so never use a bare /add/ pick). */
-const BUY_CTA =
-  /add to (bag|basket|cart)\b|añadir a la (cesta|bolsa|canasta|carrito)|tambah ke (beg|keranjang|bakul)\b|agregar (al|a la) (carro|carrito|cesta|bolsa|canasta)\b|加入(至)?(购|購)物(袋|车|車)/i;
+  const matchedRegex = OOS_REGEX.find((regex) => regex.test(t));
+  if (matchedRegex) {
+    console.log('OOS regex matched:', matchedRegex.toString());
+    return true;
+  }
+  return false;
+}
 
 function pdpAddToCartButton(page: Page): Locator {
   const main = page.locator('main');
-  const byDataQa = main.locator(
-    'button[data-qa-action*="addToCart"], button[data-qa-action*="add-to-cart"]',
-  );
-  return byDataQa
-    .or(main.getByRole('button', { name: BUY_CTA }))
+  return main
+    .getByRole('button', { name: BUY_CTA })
     .or(main.getByLabel(BUY_CTA))
     .first();
 }
@@ -111,12 +114,6 @@ function pdpAddToCartButton(page: Page): Locator {
 async function isCtaTreatedAsDisabled(cta: Locator): Promise<boolean> {
   const ar = (await cta.getAttribute('aria-disabled'))?.toLowerCase();
   if (ar === 'true' || ar === '1') {
-    return true;
-  }
-  if (
-    (await cta.getAttribute('data-qa-availability'))?.toLowerCase() ===
-    'out-of-stock'
-  ) {
     return true;
   }
   return cta
@@ -130,7 +127,6 @@ async function isCtaTreatedAsDisabled(cta: Locator): Promise<boolean> {
 
 /** In stock: PDP does not read as OOS, the buy CTA is visible, and the buy CTA is not disabled. */
 async function checkRestock(page: Page): Promise<CheckResult> {
-  // Let the bundle finish updating sizes / CTA (domcontentloaded alone can leave a stale “enabled” wishlist or header).
   await page
     .waitForLoadState('load', { timeout: 20_000 })
     .catch(() => undefined);
@@ -181,11 +177,7 @@ const zaraMyAdapter: SiteAdapter = {
     return url.hostname === ZARA_HOST && url.pathname.includes(ZARA_MY_PATH);
   },
 
-  async check(
-    page: Page,
-    mode: TrackMode,
-    ctx: TrackContext,
-  ): Promise<CheckResult> {
+  async check(page: Page, mode: TrackMode): Promise<CheckResult> {
     try {
       if (mode === 'sale') {
         return checkSale(page);

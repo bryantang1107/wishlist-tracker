@@ -1,7 +1,19 @@
 {
   "urls": [
     {
+      "url": "https://www.zara.com/my/en/fitted-blazer-zw-collection-p03736047.html?v1=525495087&v2=2419737",
+      "mode": "sale"
+    },
+    {
       "url": "https://www.zara.com/my/en/polyamide-blend-top-p01355457.html?v1=498720818",
+      "mode": "restock"
+    },
+    {
+      "url": "https://www.uniqlo.com/my/en/products/E487277-000/00?colorDisplayCode=14&sizeDisplayCode=002",
+      "mode": "sale"
+    },
+    {
+      "url": "https://www.zara.com/my/en/polyamide-blend-top-p01355457.html?v1=498720820",
       "mode": "restock"
     }
   ]
