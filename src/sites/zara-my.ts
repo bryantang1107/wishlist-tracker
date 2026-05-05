@@ -90,13 +90,11 @@ async function hasPdpOutOfStockSignals(page: Page): Promise<boolean> {
   }
   const matchedKeyword = OOS_KEYWORDS.find((keyword) => t.includes(keyword));
   if (matchedKeyword) {
-    console.log('OOS keyword matched:', matchedKeyword);
     return true;
   }
 
   const matchedRegex = OOS_REGEX.find((regex) => regex.test(t));
   if (matchedRegex) {
-    console.log('OOS regex matched:', matchedRegex.toString());
     return true;
   }
   return false;
@@ -172,6 +170,7 @@ async function checkRestock(page: Page): Promise<CheckResult> {
 
 const zaraMyAdapter: SiteAdapter = {
   id: 'zara-my',
+  displayName: 'Zara Malaysia',
 
   supports(url: URL): boolean {
     return url.hostname === ZARA_HOST && url.pathname.includes(ZARA_MY_PATH);

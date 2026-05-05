@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wishlist Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg0: #0c0e12;
+        --bg1: #12151c;
+        --card: #181c26;
+        --border: rgba(255, 255, 255, 0.08);
+        --text: #e8eaef;
+        --muted: #8b93a4;
+        --accent: #5ee4d4;
+        --accent-dim: rgba(94, 228, 212, 0.12);
+        --danger: #ff6b6b;
+        --shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+        --radius: 20px;
+        --font: 'DM Sans', system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font);
+        color: var(--text);
+        background:
+          radial-gradient(
+            1200px 800px at 20% -10%,
+            #1a2030 0%,
+            transparent 55%
+          ),
+          radial-gradient(900px 600px at 100% 0%, #152028 0%, transparent 50%),
+          var(--bg0);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 2.5rem 1.25rem 3rem;
+      }
+
+      .wrap {
+        width: 100%;
+        max-width: 46rem;
+      }
+
+      h1 {
+        font-size: clamp(1.75rem, 4.5vw, 2.35rem);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        margin: 0 0 0.4rem;
+        line-height: 1.15;
+      }
+
+      .lede {
+        color: var(--muted);
+        font-size: 1.05rem;
+        margin: 0 0 1.25rem;
+        line-height: 1.5;
+        max-width: 40ch;
+      }
+
+      .supported {
+        margin: 0 0 1.5rem;
+      }
+
+      .supported h2 {
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 0 0 0.65rem;
+      }
+
+      .supported ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      .supported li {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 0.4rem 0.85rem;
+      }
+
+      .supported .load-hint,
+      .supported .load-err {
+        font-size: 0.9rem;
+        color: var(--muted);
+        margin: 0;
+      }
+
+      .supported .load-err {
+        color: #ffb4b4;
+      }
+
+      .card {
+        background:
+          linear-gradient(
+            165deg,
+            rgba(255, 255, 255, 0.04) 0%,
+            transparent 45%
+          ),
+          var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.75rem 1.5rem 1.5rem;
+        box-shadow: var(--shadow);
+      }
+
+      @media (min-width: 540px) {
+        .card {
+          padding: 2rem 2rem 1.75rem;
+        }
+      }
+
+      .field-label {
+        display: block;
+        font-size: 1.2rem;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 0.6rem;
+      }
+
+      .url-box {
+        position: relative;
+        margin-bottom: 1.75rem;
+      }
+
+      .url-box textarea {
+        width: 100%;
+        min-height: 6.5rem;
+        font-family: 'DM Mono', ui-monospace, monospace;
+        font-size: 1.05rem;
+        line-height: 1.45;
+        color: var(--text);
+        background: rgba(0, 0, 0, 0.25);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 1.1rem 1.2rem;
+        resize: vertical;
+        outline: none;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
+
+      .url-box textarea::placeholder {
+        color: #5a6270;
+      }
+
+      .url-box textarea:hover {
+        border-color: rgba(255, 255, 255, 0.14);
+      }
+
+      .url-box textarea:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+      }
+
+      .mode-group {
+        margin-bottom: 1.5rem;
+      }
+
+      .mode-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+      }
+
+      .mode-option {
+        position: relative;
+      }
+
+      .mode-option input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .mode-option label {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+        min-height: 4.5rem;
+        padding: 1rem 1.1rem;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: rgba(0, 0, 0, 0.2);
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          background 0.2s,
+          transform 0.15s;
+        user-select: none;
+      }
+
+      .mode-option label:hover {
+        border-color: rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.02);
+      }
+
+      .mode-option input:focus-visible + label {
+        box-shadow: 0 0 0 2px var(--accent);
+      }
+
+      .mode-option input:checked + label {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+        box-shadow: 0 0 0 1px rgba(94, 228, 212, 0.35) inset;
+      }
+
+      .mode-name {
+        font-weight: 600;
+        font-size: 1.1rem;
+        letter-spacing: -0.02em;
+      }
+
+      .mode-hint {
+        font-size: 0.8rem;
+        color: var(--muted);
+        line-height: 1.35;
+      }
+
+      .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      @media (min-width: 480px) {
+        .actions {
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-between;
+        }
+      }
+
+      button[type='submit'] {
+        width: 100%;
+        font-family: var(--font);
+        font-size: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: #0a0c10;
+        background: linear-gradient(180deg, #6ff5e5 0%, #5ee4d4 100%);
+        border: none;
+        border-radius: 14px;
+        padding: 1rem 1.5rem;
+        cursor: pointer;
+        box-shadow: 0 4px 24px rgba(94, 228, 212, 0.25);
+        transition:
+          filter 0.2s,
+          transform 0.12s;
+      }
+
+      @media (min-width: 480px) {
+        button[type='submit'] {
+          width: auto;
+          min-width: 11rem;
+        }
+      }
+
+      button[type='submit']:hover {
+        filter: brightness(1.06);
+      }
+
+      button[type='submit']:active {
+        transform: scale(0.99);
+      }
+
+      button[type='submit']:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        filter: none;
+        transform: none;
+      }
+
+      .status {
+        min-height: 1.25rem;
+        font-size: 0.9rem;
+        line-height: 1.4;
+        color: var(--muted);
+      }
+
+      .status.is-error {
+        color: #ffb4b4;
+      }
+
+      .status.is-ok {
+        color: #8decdb;
+      }
+
+      footer {
+        margin-top: 2.5rem;
+        text-align: center;
+        font-size: 0.8rem;
+        color: #4a5260;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Track a product</h1>
+      <p class="lede">
+        Paste a product link and pick what to watch. We&rsquo;ll add it to your
+        tracker.
+      </p>
+
+      <section class="supported" aria-labelledby="supported-heading">
+        <h2 id="supported-heading">Supported stores</h2>
+        <p class="load-hint" id="supported-list-placeholder">Loading&hellip;</p>
+        <ul id="supported-list" hidden></ul>
+      </section>
+
+      <div class="card">
+        <form id="f" novalidate>
+          <div class="url-box">
+            <span class="field-label">Product URL</span>
+            <textarea
+              id="url"
+              name="url"
+              required
+              autocomplete="url"
+              placeholder="Paste a full product page URL (https://example.com/...)"
+              spellcheck="false"
+            ></textarea>
+          </div>
+
+          <div class="mode-group">
+            <span class="field-label">Mode</span>
+            <div class="mode-row">
+              <div class="mode-option">
+                <input type="radio" id="mode-sale" name="mode" value="sale" />
+                <label for="mode-sale">
+                  <span class="mode-name">Sale</span>
+                  <span class="mode-hint"
+                    >Alert when the price drops (discount)</span
+                  >
+                </label>
+              </div>
+              <div class="mode-option">
+                <input
+                  type="radio"
+                  id="mode-restock"
+                  name="mode"
+                  value="restock"
+                  checked
+                />
+                <label for="mode-restock">
+                  <span class="mode-name">Restock</span>
+                  <span class="mode-hint"
+                    >Alert when the item is back in stock</span
+                  >
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <p class="status" id="msg" role="status" aria-live="polite"></p>
+            <button type="submit" id="go">Add to tracker</button>
+          </div>
+        </form>
+      </div>
+
+      <footer>We check the sites every 24 hours for the latest updates.</footer>
+    </div>
+
+    <script>
+      const form = document.getElementById('f');
+      const url = document.getElementById('url');
+      const msg = document.getElementById('msg');
+      const go = document.getElementById('go');
+      const supportedList = document.getElementById('supported-list');
+      const supportedPh = document.getElementById('supported-list-placeholder');
+
+      async function loadSupportedSites() {
+        try {
+          const r = await fetch('/api/sites');
+          if (!r.ok) throw new Error('Bad response');
+          const j = await r.json();
+          const sites = j && Array.isArray(j.sites) ? j.sites : [];
+          if (supportedPh) supportedPh.hidden = true;
+          if (supportedList) {
+            supportedList.innerHTML = '';
+            for (const s of sites) {
+              if (!s || typeof s.displayName !== 'string') continue;
+              const li = document.createElement('li');
+              li.textContent = s.displayName;
+              if (s.id) li.setAttribute('data-adapter', s.id);
+              supportedList.appendChild(li);
+            }
+            supportedList.hidden = supportedList.children.length === 0;
+            if (supportedList.children.length === 0) {
+              if (supportedPh) {
+                supportedPh.textContent = 'No stores registered yet.';
+                supportedPh.classList.add('load-err');
+                supportedPh.hidden = false;
+              }
+            }
+          }
+        } catch (e) {
+          if (supportedPh) {
+            supportedPh.classList.add('load-err');
+            supportedPh.textContent =
+              'Could not load the list of supported stores. Is the server running?';
+            supportedPh.hidden = false;
+          }
+          if (supportedList) supportedList.hidden = true;
+        }
+      }
+
+      loadSupportedSites();
+
+      function setMsg(text, kind) {
+        msg.textContent = text;
+        msg.className = 'status' + (kind ? ' is-' + kind : '');
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setMsg('');
+
+        const u = String(url.value || '').trim();
+        if (!u) {
+          setMsg('Enter a product URL.', 'error');
+          return;
+        }
+
+        const m = form.querySelector('input[name="mode"]:checked')?.value;
+        if (m !== 'sale' && m !== 'restock') {
+          setMsg('Choose sale or restock.', 'error');
+          return;
+        }
+
+        go.disabled = true;
+        setMsg('Saving…', '');
+
+        try {
+          const r = await fetch('/tracks', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: u, mode: m }),
+          });
+          const data = await r.json().catch(function () {
+            return {};
+          });
+
+          if (r.status === 201) {
+            setMsg('Added to tracker.', 'ok');
+            url.value = '';
+            return;
+          }
+
+          const t =
+            data.message || data.error || 'Request failed (' + r.status + ').';
+          setMsg(t, 'error');
+        } catch (err) {
+          setMsg(
+            err && err.message
+              ? String(err.message)
+              : 'Network error. Is the server running?',
+            'error',
+          );
+        } finally {
+          go.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
